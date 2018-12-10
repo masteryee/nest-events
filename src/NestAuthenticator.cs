@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -16,6 +17,7 @@ namespace Nest.Events.Listener
         private readonly Dictionary<string, string> _apiTokenFormParameters = new Dictionary<string, string>(4);
         private readonly string _clientId;
         private readonly string _redirectUrl;
+        public const string TokenCacheLocation = "C:\\ProgramData\\Nest\\token.json";
 
         public NestAuthenticator(HttpClient httpClient, string clientId, string clientSecret, string redirectUrl)
         {
@@ -84,10 +86,18 @@ namespace Nest.Events.Listener
             var anonResponseType = new
             {
                 access_token = "",
-                expires_in = 0
+                expires_in = 0L
             };
 
             var body = JsonConvert.DeserializeAnonymousType(json, anonResponseType);
+            var authTokenToSave = new NestAuthToken
+            {
+                AccessToken = body.access_token,
+                Expiration = DateTime.UtcNow.AddSeconds(body.expires_in)
+            };
+
+            var tokenJson = JsonConvert.SerializeObject(authTokenToSave);
+            await File.WriteAllTextAsync(TokenCacheLocation, tokenJson);
             return body.access_token;
         }
     }

@@ -7,6 +7,8 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
+using Newtonsoft.Json;
+using System.Linq;
 
 namespace Nest.Events.Listener
 {
@@ -44,6 +46,9 @@ namespace Nest.Events.Listener
 
         static async Task<string> GetApiTokenAsync()
         {
+            var existingToken = await CheckForExistingTokenAsync();
+            if (!string.IsNullOrEmpty(existingToken)) return existingToken;
+
             var nestAuthenticator = new NestAuthenticator(_httpClient,
                 redirectUrl: "http://localhost:9999/",
                 clientId: Configuration["Nest:ClientId"],
@@ -51,6 +56,18 @@ namespace Nest.Events.Listener
 
             var authorizationCode = await nestAuthenticator.ReceiveAuthorizationCodeAsync();
             return await nestAuthenticator.GetApiTokenAsync(authorizationCode);
+        }
+
+        static async Task<string> CheckForExistingTokenAsync()
+        {
+            if (!File.Exists(NestAuthenticator.TokenCacheLocation)) return null;
+
+            var json = await File.ReadAllTextAsync(NestAuthenticator.TokenCacheLocation);
+            var existingToken = JsonConvert.DeserializeObject<NestAuthToken>(json);
+
+            if (existingToken.Expiration < DateTime.UtcNow) return null;
+
+            return existingToken.AccessToken;
         }
 
         static async Task<StreamReader> OpenNestEventStreamAsync(string apiToken)
@@ -123,9 +140,10 @@ namespace Nest.Events.Listener
                             }
 
                             lastEvents[deviceName] = startTime;
-                            
+
                             // no alerts on the first data
-                            if (isFirstTime)
+                            var timeRange = DateTime.Parse(startTime).ToLocalTime().TimeOfDay;
+                            if (isFirstTime || timeRange.Hours == 7 || timeRange.Hours == 8 || (timeRange.Hours == 9 && timeRange.Minutes < 30))
                             {
                                 isFirstTime = false;
                                 continue;
