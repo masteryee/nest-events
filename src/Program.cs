@@ -30,18 +30,17 @@ namespace Nest.Events.Listener
             };
         }
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("Welcome to the Nest Event streamer!");
-            var task = Task.Run(async () => await RunAsync().ConfigureAwait(false));
-            task.Wait();
+            await RunAsync().ConfigureAwait(false);
         }
 
         static async Task RunAsync()
         {
-            var apiToken = await GetApiTokenAsync();
+            var apiToken = await GetApiTokenAsync().ConfigureAwait(false);
             var streamReader = await OpenNestEventStreamAsync(apiToken);
-            await DetectPersonAsync(streamReader);
+            await DetectPersonAsync(streamReader).ConfigureAwait(false);
         }
 
         static async Task<string> GetApiTokenAsync()
@@ -55,7 +54,7 @@ namespace Nest.Events.Listener
                 clientSecret: Configuration["Nest:ClientSecret"]);
 
             var authorizationCode = await nestAuthenticator.ReceiveAuthorizationCodeAsync();
-            return await nestAuthenticator.GetApiTokenAsync(authorizationCode);
+            return await nestAuthenticator.GetApiTokenAsync(authorizationCode).ConfigureAwait(false);
         }
 
         static async Task<string> CheckForExistingTokenAsync()
@@ -80,7 +79,7 @@ namespace Nest.Events.Listener
 
             var response = await _httpClient.SendAsync(
                 request,
-                HttpCompletionOption.ResponseHeadersRead);
+                HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             var body = await response.Content.ReadAsStreamAsync();
 
             return new StreamReader(body);

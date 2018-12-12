@@ -21,7 +21,7 @@ namespace Nest.Events.Listener
         public async Task SendNotificationAsync(string deviceName, string timestamp)
         {
             var message = $"{deviceName} saw a person @ {timestamp}";
-            var result = await _snsClient.PublishAsync(new PublishRequest(_topicArn, message));
+            var result = await _snsClient.PublishAsync(new PublishRequest(_topicArn, message)).ConfigureAwait(false);
             Console.WriteLine($"Message published with result code: {result.HttpStatusCode}");
         }
 

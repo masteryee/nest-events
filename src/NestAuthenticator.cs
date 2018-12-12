@@ -80,7 +80,7 @@ namespace Nest.Events.Listener
             request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
             request.Content = new FormUrlEncodedContent(_apiTokenFormParameters);
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             var json = await response.Content.ReadAsStringAsync();
 
             var anonResponseType = new
