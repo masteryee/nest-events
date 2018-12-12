@@ -15,7 +15,7 @@ namespace Nest.Events.Listener
     class Program
     {
         public static IConfigurationRoot Configuration { get; set; }
-        
+
         static HttpClient _httpClient;
 
         static Program()
@@ -123,6 +123,7 @@ namespace Nest.Events.Listener
                         if (lastEvent == null) continue;
 
                         var detectedPerson = (bool)lastEvent["has_person"];
+                        var activityZoneIds = lastEvent["activity_zone_ids"]?.Values<string>().ToArray();
                         if (detectedPerson)
                         {
                             var deviceName = myCamera["name"].ToString();
@@ -149,10 +150,16 @@ namespace Nest.Events.Listener
                                 continue;
                             }
 
-                            await notifier.SendNotificationAsync(deviceName, GetLocalTime(startTime));
+                            // no alerts if activity zones are set and person was not in an activity zone
+                            if (activityZoneIds != null && activityZoneIds.Length == 0)
+                            {
+                                continue;
+                            }
+
+                            await notifier.SendNotificationAsync(deviceName, GetLocalTime(startTime)).ConfigureAwait(false);
                         }
                     }
-                    
+
                     isExpectingDeviceData = false;
                 }
             }
