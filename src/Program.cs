@@ -16,7 +16,7 @@ namespace Nest.Events.Listener
     {
         public static IConfigurationRoot Configuration { get; set; }
 
-        static HttpClient _httpClient;
+        static readonly HttpClient _httpClient;
 
         static Program()
         {
@@ -24,7 +24,7 @@ namespace Nest.Events.Listener
             builder.AddUserSecrets("ProductOAuth");
             Configuration = builder.Build();
 
-            _httpClient = new HttpClient()
+            _httpClient = new HttpClient(new NestRedirectHandler())
             {
                 Timeout = Timeout.InfiniteTimeSpan
             };
