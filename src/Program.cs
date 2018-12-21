@@ -18,6 +18,8 @@ namespace Nest.Events.Listener
 
         static readonly HttpClient _httpClient;
 
+        public static string NestApiEndpoint = "https://developer-api.nest.com";
+
         static Program()
         {
             var builder = new ConfigurationBuilder();
@@ -39,8 +41,25 @@ namespace Nest.Events.Listener
         static async Task RunAsync()
         {
             var apiToken = await GetApiTokenAsync().ConfigureAwait(false);
-            var streamReader = await OpenNestEventStreamAsync(apiToken);
-            await DetectPersonAsync(streamReader).ConfigureAwait(false);
+            while (true)
+            {
+                var streamReader = await OpenNestEventStreamAsync(apiToken);
+                try
+                {
+                    await DetectPersonAsync(streamReader).ConfigureAwait(false);
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(ex.StackTrace);
+                }
+                finally
+                {
+                    Console.WriteLine("Retrying in 5 seconds...");
+                    await Task.Delay(5000);
+                }
+            }
+            
         }
 
         static async Task<string> GetApiTokenAsync()
@@ -72,7 +91,7 @@ namespace Nest.Events.Listener
         static async Task<StreamReader> OpenNestEventStreamAsync(string apiToken)
         {
             // setup up streaming and authentication
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://developer-api.nest.com");
+            var request = new HttpRequestMessage(HttpMethod.Get, NestApiEndpoint);
             request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
             request.Headers.Add("Accept", "text/event-stream");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
@@ -125,15 +144,25 @@ namespace Nest.Events.Listener
                         var activityZoneIds = lastEvent["activity_zone_ids"]?.Values<string>().ToArray();
                         if (detectedPerson)
                         {
+                            // no alerts if activity zones are set and person was not in an activity zone
+                            if (activityZoneIds == null || activityZoneIds.Length == 0)
+                            {
+                                continue;
+                            }
+
                             var deviceName = myCamera["name"].ToString();
                             var startTime = lastEvent["start_time"].ToString();
-                            var endTime = (lastEvent["end_time"] ?? "N/A").ToString();
-                            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: {deviceName}: {GetLocalTime(startTime)} to {GetLocalTime(endTime)}");
 
-                            // ignore the event when an end date is written
+                            // accept only new detections
                             if (lastEvents.TryGetValue(deviceName, out string lastEventDate))
                             {
                                 if (lastEventDate == startTime)
+                                {
+                                    continue;
+                                }
+
+                                // do not send another notification for a new event within 1 minute
+                                if (DateTime.Parse(lastEventDate).AddMinutes(1).CompareTo(DateTime.Parse(startTime)) == 1)
                                 {
                                     continue;
                                 }
@@ -149,11 +178,7 @@ namespace Nest.Events.Listener
                                 continue;
                             }
 
-                            // no alerts if activity zones are set and person was not in an activity zone
-                            if (activityZoneIds != null && activityZoneIds.Length == 0)
-                            {
-                                continue;
-                            }
+                            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: {deviceName} detected person @ {GetLocalTime(startTime)} in zone(s) {string.Join(',', activityZoneIds)}");
 
                             await notifier.SendNotificationAsync(deviceName, GetLocalTime(startTime)).ConfigureAwait(false);
                         }

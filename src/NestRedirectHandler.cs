@@ -29,6 +29,7 @@ namespace Nest.Events.Listener
 
                 if (location != null && IsHostTrusted(location))
                 {
+                    Program.NestApiEndpoint = location.AbsoluteUri;
                     request.RequestUri = location;
                     response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 }
