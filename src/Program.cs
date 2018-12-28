@@ -18,7 +18,7 @@ namespace Nest.Events.Listener
 
         static readonly HttpClient _httpClient;
 
-        public static string NestApiEndpoint = "https://developer-api.nest.com";
+        private const string NestApiEndpoint = "https://developer-api.nest.com";
 
         static Program()
         {
