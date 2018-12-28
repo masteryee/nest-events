@@ -106,10 +106,7 @@ namespace Nest.Events.Listener
 
         static async Task DetectPersonAsync(StreamReader eventStreamReader)
         {
-            var notifier = new AwsSmsSender(Configuration["Aws:AccessKeyId"],
-                Configuration["Aws:SecretAccessKey"],
-                Configuration["Aws:RegionEndpoint"],
-                Configuration["Aws:SnsTopicArn"]);
+            var notifier = NestEventNotifierFactory.GetAwsNotifier(Configuration);
 
             var lastEvents = new Dictionary<string, string>();
             bool isExpectingDeviceData = false;
