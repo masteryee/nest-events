@@ -4,6 +4,7 @@ using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
 using System.Threading.Tasks;
 using System.Reflection;
+using Microsoft.Extensions.Configuration;
 
 namespace Nest.Events.Listener
 {
@@ -12,10 +13,17 @@ namespace Nest.Events.Listener
         private readonly AmazonSimpleNotificationServiceClient _snsClient;
         private readonly string _topicArn;
 
-        public AwsSmsSender(string accessKeyId, string secretAccessKey, string regionEndpoint, string topicArn)
+        public AwsSmsSender(IConfiguration configuration)
         {
-            _snsClient = new AmazonSimpleNotificationServiceClient(accessKeyId, secretAccessKey, ParseEndpoint(regionEndpoint));
-            _topicArn = topicArn;
+            var accessKeyId = configuration["Aws:AccessKeyId"];
+            var secretAccessKey = configuration["Aws:SecretAccessKey"];
+            var regionEndpoint = configuration["Aws:RegionEndpoint"];
+
+            _snsClient = new AmazonSimpleNotificationServiceClient(accessKeyId,
+                secretAccessKey,
+                ParseEndpoint(regionEndpoint));
+
+            _topicArn = configuration["Aws:SnsTopicArn"];
         }
 
         public async Task SendNotificationAsync(string deviceName, string timestamp)

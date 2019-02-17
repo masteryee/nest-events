@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,20 +13,20 @@ namespace Nest.Events.Listener
 {
     public class NestAuthenticator
     {
+        private const string RedirectUrl = "http://localhost:9999/";
+        private const string TokenCacheLocation = "C:\\ProgramData\\Nest\\token.json";
+
         private readonly HttpClient _httpClient;
         private readonly HttpListener _httpListener = new HttpListener();
         private readonly Dictionary<string, string> _apiTokenFormParameters = new Dictionary<string, string>(4);
         private readonly string _clientId;
-        private readonly string _redirectUrl;
-        public const string TokenCacheLocation = "C:\\ProgramData\\Nest\\token.json";
-
-        public NestAuthenticator(HttpClient httpClient, string clientId, string clientSecret, string redirectUrl)
+        
+        public NestAuthenticator(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _clientId = clientId;
-            _redirectUrl = redirectUrl;
-            _apiTokenFormParameters["client_id"] = clientId;
-            _apiTokenFormParameters["client_secret"] = clientSecret;
+            _clientId = configuration["Nest:ClientId"];
+            _apiTokenFormParameters["client_id"] = _clientId;
+            _apiTokenFormParameters["client_secret"] = configuration["Nest:ClientSecret"];
             _apiTokenFormParameters["grant_type"] = "authorization_code";
             _apiTokenFormParameters["code"] = null;
         }
@@ -34,9 +35,9 @@ namespace Nest.Events.Listener
         {
             if (!_httpListener.IsListening)
             {
-                _httpListener.Prefixes.Add(_redirectUrl);
+                _httpListener.Prefixes.Add(RedirectUrl);
                 _httpListener.Start();
-                Console.WriteLine($"Listening for requests on {_redirectUrl}");
+                Console.WriteLine($"Listening for requests on {RedirectUrl}");
             }
         }
 
@@ -54,7 +55,7 @@ namespace Nest.Events.Listener
             HttpListenerContext context = null;
             using (var process = Process.Start(startInfo))
             {
-                context = await _httpListener.GetContextAsync();
+                context = await _httpListener.GetContextAsync().ConfigureAwait(false);
             }
 
             var verifyState = context.Request.QueryString["state"];
@@ -68,7 +69,7 @@ namespace Nest.Events.Listener
             var authenticationCode = context.Request.QueryString["code"];
             context.Response.Close();
             _httpListener.Stop();
-            Console.WriteLine($"Stopped listening for requests on {_redirectUrl}");
+            Console.WriteLine($"Stopped listening for requests on {RedirectUrl}");
             return authenticationCode;
         }
 
@@ -81,7 +82,7 @@ namespace Nest.Events.Listener
             request.Content = new FormUrlEncodedContent(_apiTokenFormParameters);
 
             var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             var anonResponseType = new
             {
@@ -97,8 +98,20 @@ namespace Nest.Events.Listener
             };
 
             var tokenJson = JsonConvert.SerializeObject(authTokenToSave);
-            await File.WriteAllTextAsync(TokenCacheLocation, tokenJson);
+            await File.WriteAllTextAsync(TokenCacheLocation, tokenJson).ConfigureAwait(false);
             return body.access_token;
+        }
+
+        public async Task<string> CheckForExistingTokenAsync()
+        {
+            if (!File.Exists(TokenCacheLocation)) return null;
+
+            var json = await File.ReadAllTextAsync(TokenCacheLocation);
+            var existingToken = JsonConvert.DeserializeObject<NestAuthToken>(json);
+
+            if (existingToken.Expiration < DateTime.UtcNow) return null;
+
+            return existingToken.AccessToken;
         }
     }
 }
