@@ -24,9 +24,6 @@ All configuration is stored in the Secret Manager tool available to .NET Core. T
 Q: Doesn't Nest already send notifications?  
 A: Yes, the Nest mobile app allows you to control how notifications get sent out, BUT it isn't as fine-grained as we prefer (i.e. receive notifications for selected activity types, or none at all). Besides, this was a fun way to play with the Nest and AWS API =)
 
-Q: Where's all the enterprisey features that encourage flexibility and maintainability like DI and unit tests?  
-A: Believe me, I considered it, but this is just a small, personal app that isn't likely to have ongoing development.
-
 ## References
 * Nest Developer API [https://developers.nest.com/](https://developers.nest.com/)
 * AWS - Sending an SMS Message to Multiple Phone Numbers [https://docs.aws.amazon.com/sns/latest/dg/sms_publish-to-topic.html](https://docs.aws.amazon.com/sns/latest/dg/sms_publish-to-topic.html)
