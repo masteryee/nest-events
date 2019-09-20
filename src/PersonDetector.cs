@@ -28,12 +28,18 @@ namespace Nest.Events.Listener
 
         public async Task ListenAsync()
         {
+            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: Get API token...");
+
             var apiToken = await GetApiTokenAsync().ConfigureAwait(false);
             while (true)
             {
+                Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: Open event stream...");
+
                 var streamReader = await OpenNestEventStreamAsync(apiToken);
                 try
                 {
+                    Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: Begin listening for person events...");
+
                     await DetectPersonAsync(streamReader).ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -43,7 +49,7 @@ namespace Nest.Events.Listener
                 }
                 finally
                 {
-                    Console.WriteLine("Retrying in 5 seconds...");
+                    Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: Retrying in 5 seconds...");
                     var task = Task.Delay(5000);
                     await task.ConfigureAwait(false);
                     task.Dispose();
@@ -108,19 +114,34 @@ namespace Nest.Events.Listener
                         var myCamera = cameraJson.First;
                         var lastEvent = myCamera["last_event"];
                         if (lastEvent == null) continue;
+                        var deviceName = myCamera["name"].ToString();
+                        var startTime = lastEvent["start_time"].ToString();
 
-                        var detectedPerson = (bool)lastEvent["has_person"];
-                        var activityZoneIds = lastEvent["activity_zone_ids"]?.Values<string>().ToArray();
-                        if (detectedPerson)
+                        var hasPerson = (bool)lastEvent["has_person"];
+                        var hasMotion = (bool)lastEvent["has_motion"];
+                        var hasSound = (bool)lastEvent["has_sound"];
+                        if (hasPerson)
+                        {
+                            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: {deviceName} ### PERSON ### @ {GetLocalTime(startTime)}");
+                        }
+                        else if (hasMotion)
+                        {
+                            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: {deviceName} Motion @ {GetLocalTime(startTime)}");
+                        }
+                        else if (hasSound)
+                        {
+                            Console.WriteLine($"{GetLocalTime(DateTime.UtcNow.ToString())}: {deviceName} Sound @ {GetLocalTime(startTime)}");
+                        }
+
+                        if (hasPerson)
                         {
                             // no alerts if activity zones are set and person was not in an activity zone
+                            var activityZoneIds = lastEvent["activity_zone_ids"]?.Values<string>().ToArray();
                             if (activityZoneIds == null || activityZoneIds.Length == 0)
                             {
+                                Console.WriteLine($"Person not in any activity zone: {lastEvent}");
                                 continue;
                             }
-
-                            var deviceName = myCamera["name"].ToString();
-                            var startTime = lastEvent["start_time"].ToString();
 
                             // accept only new detections
                             if (lastEvents.TryGetValue(deviceName, out string lastEventDate))
@@ -140,10 +161,16 @@ namespace Nest.Events.Listener
                             lastEvents[deviceName] = startTime;
 
                             // no alerts on the first data
-                            var timeRange = DateTime.Parse(startTime).ToLocalTime().TimeOfDay;
-                            if (isFirstTime || timeRange.Hours == 7 || timeRange.Hours == 8 || (timeRange.Hours == 9 && timeRange.Minutes < 30))
+                            if (isFirstTime)
                             {
                                 isFirstTime = false;
+                                continue;
+                            }
+
+                            // no alerts between 7AM and 9:30AM
+                            var timeRange = DateTime.Parse(startTime).ToLocalTime().TimeOfDay;
+                            if (timeRange.Hours == 7 || timeRange.Hours == 8 || (timeRange.Hours == 9 && timeRange.Minutes < 30))
+                            {
                                 continue;
                             }
 
@@ -153,6 +180,7 @@ namespace Nest.Events.Listener
                         }
                     }
 
+                    isFirstTime = false;
                     isExpectingDeviceData = false;
                 }
             }
