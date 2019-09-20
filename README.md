@@ -6,7 +6,7 @@ My wife requested this =). This works better for us than the normal Nest service
 
 ## Requirements
 * Nest Developer account with a custom product that has access to read camera data
-* AWS account to send SMS messages (the free tier allows 1 million free publishes)
+* AWS account to send SMS messages via SNS (the free tier allows 100 SMS messages per month)
 
 ## Configuration
 All configuration is stored in the Secret Manager tool available to .NET Core. This tool is best used during development to keep secrets like authentication outside of your project's settings file to prevent accidental check-in of Production credentials/info.
